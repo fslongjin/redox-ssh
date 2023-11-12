@@ -9,12 +9,13 @@ use sys;
 
 pub type ChannelId = u32;
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct Channel {
     id: ChannelId,
     peer_id: ChannelId,
     process: Option<process::Child>,
-    pty: Option<(RawFd, PathBuf)>,
+    pub pty: Option<(RawFd, PathBuf)>,
     master: Option<File>,
     window_size: u32,
     peer_window_size: u32,
@@ -37,8 +38,10 @@ pub enum ChannelRequest {
 
 impl Channel {
     pub fn new(
-        id: ChannelId, peer_id: ChannelId, peer_window_size: u32,
-        max_packet_size: u32
+        id: ChannelId,
+        peer_id: ChannelId,
+        peer_window_size: u32,
+        max_packet_size: u32,
     ) -> Channel {
         Channel {
             id: id,
@@ -66,8 +69,7 @@ impl Channel {
     }
 
     pub fn request(&mut self, request: ChannelRequest) {
-        match request
-        {
+        match request {
             ChannelRequest::Pty {
                 chars,
                 rows,
@@ -89,7 +91,8 @@ impl Channel {
                     #[cfg(target_os = "redox")]
                     use syscall::dup;
                     #[cfg(target_os = "redox")]
-                    let master2 = unsafe { dup(master_fd as usize, &[]).unwrap_or(!0) };
+                    let master2 =
+                        unsafe { dup(master_fd as usize, &[]).unwrap_or(!0) };
 
                     #[cfg(not(target_os = "redox"))]
                     use libc::dup;
@@ -97,7 +100,8 @@ impl Channel {
                     let master2 = unsafe { dup(master_fd) };
 
                     println!("dup result: {}", master2 as u32);
-                    let mut master = unsafe { File::from_raw_fd(master2 as i32) };
+                    let mut master =
+                        unsafe { File::from_raw_fd(master2 as i32) };
                     loop {
                         use std::str::from_utf8_unchecked;
                         let mut buf = [0; 4096];
@@ -139,13 +143,15 @@ impl Channel {
                         .unwrap()
                         .into_raw_fd();
 
-                    process::Command::new("login")
-                        .stdin(unsafe { Stdio::from_raw_fd(stdin) })
-                        .stdout(unsafe { Stdio::from_raw_fd(stdout) })
-                        .stderr(unsafe { Stdio::from_raw_fd(stderr) })
-                        .before_exec(|| sys::before_exec())
-                        .spawn()
-                        .unwrap();
+                    unsafe {
+                        process::Command::new("login")
+                            .stdin(Stdio::from_raw_fd(stdin))
+                            .stdout(Stdio::from_raw_fd(stdout))
+                            .stderr(Stdio::from_raw_fd(stderr))
+                            .pre_exec(|| sys::before_exec())
+                            .spawn()
+                            .unwrap()
+                    };
                 }
             }
         }

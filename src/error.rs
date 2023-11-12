@@ -17,15 +17,14 @@ pub enum ConnectionError {
 
 impl fmt::Display for ConnectionError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "connection error: {}", (self as &Error).description())
+        write!(f, "connection error: {self:?}",)
     }
 }
 
 impl Error for ConnectionError {
     fn description(&self) -> &str {
         use self::ConnectionError::*;
-        match self
-        {
+        match self {
             &IoError(_) => "io error",
             &ProtocolError => "protocol error",
             &NegotiationError => "negotiation error",

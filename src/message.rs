@@ -34,8 +34,7 @@ pub enum MessageType {
 impl From<u8> for MessageType {
     fn from(id: u8) -> Self {
         use self::MessageType::*;
-        match id
-        {
+        match id {
             1 => Disconnect,
             2 => Ignore,
             3 => Unimplemented,
@@ -44,12 +43,12 @@ impl From<u8> for MessageType {
             6 => ServiceAccept,
             20 => KexInit,
             21 => NewKeys,
-            30...49 => KeyExchange(id),
+            30..=49 => KeyExchange(id),
             50 => UserAuthRequest,
             51 => UserAuthFailure,
             52 => UserAuthSuccess,
             53 => UserAuthBanner,
-            60...79 => UserAuth(id),
+            60..=79 => UserAuth(id),
             80 => GlobalRequest,
             81 => RequestSuccess,
             82 => RequestFailure,
@@ -72,8 +71,7 @@ impl From<u8> for MessageType {
 impl Into<u8> for MessageType {
     fn into(self) -> u8 {
         use self::MessageType::*;
-        match self
-        {
+        match self {
             Disconnect => 1,
             Ignore => 2,
             Unimplemented => 3,

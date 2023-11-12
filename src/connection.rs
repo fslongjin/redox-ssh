@@ -35,10 +35,10 @@ pub struct Connection {
     pub conn_type: ConnectionType,
     pub hash_data: HashData,
     state: ConnectionState,
-    key_exchange: Option<Box<KeyExchange>>,
+    key_exchange: Option<Box<dyn KeyExchange>>,
     session_id: Option<Vec<u8>>,
-    encryption: Option<(Box<Encryption>, Box<Encryption>)>,
-    mac: Option<(Box<MacAlgorithm>, Box<MacAlgorithm>)>,
+    encryption: Option<(Box<dyn Encryption>, Box<dyn Encryption>)>,
+    mac: Option<(Box<dyn MacAlgorithm>, Box<dyn MacAlgorithm>)>,
     seq: (u32, u32),
     tx_queue: VecDeque<Packet>,
     channels: BTreeMap<ChannelId, Channel>,
@@ -60,7 +60,7 @@ impl<'a> Connection {
         }
     }
 
-    pub fn run<S: Read + Write>(&mut self, mut stream: &mut S) -> Result<()> {
+    pub fn run<S: Read + Write>(&mut self, stream: &mut S) -> Result<()> {
         self.send_id(stream)?;
         self.read_id(stream)?;
 
@@ -84,7 +84,7 @@ impl<'a> Connection {
         }
     }
 
-    fn recv(&mut self, mut stream: &mut Read) -> Result<Packet> {
+    fn recv(&mut self, mut stream: &mut dyn Read) -> Result<Packet> {
         let packet = if let Some((ref mut c2s, _)) = self.encryption {
             let mut decryptor = Decryptor::new(&mut **c2s, &mut stream);
             Packet::read_from(&mut decryptor)?
@@ -113,8 +113,11 @@ impl<'a> Connection {
         Ok(packet)
     }
 
-    fn send(&mut self, mut stream: &mut Write, packet: Packet)
-        -> io::Result<()> {
+    fn send(
+        &mut self,
+        mut stream: &mut dyn Write,
+        packet: Packet,
+    ) -> io::Result<()> {
         debug!("Sending packet {}: {:?}", self.seq.1, packet);
 
         let packet = packet.to_raw()?;
@@ -141,7 +144,7 @@ impl<'a> Connection {
         Ok(())
     }
 
-    fn send_id(&mut self, stream: &mut Write) -> io::Result<()> {
+    fn send_id(&mut self, stream: &mut dyn Write) -> io::Result<()> {
         let id = format!("SSH-2.0-RedoxSSH_{}", env!("CARGO_PKG_VERSION"));
         info!("Identifying as {:?}", id);
 
@@ -154,7 +157,7 @@ impl<'a> Connection {
         Ok(())
     }
 
-    fn read_id(&mut self, stream: &mut Read) -> io::Result<()> {
+    fn read_id(&mut self, stream: &mut dyn Read) -> io::Result<()> {
         use std::str;
 
         let mut buf = [0; 255];
@@ -174,22 +177,20 @@ impl<'a> Connection {
         }
     }
 
-    fn generate_key(&mut self, id: &[u8], len: usize) -> Result<Vec<u8>> {
+    fn generate_key(&mut self, id: &[u8], _len: usize) -> Result<Vec<u8>> {
         use self::ConnectionError::KeyGenerationError;
 
         let kex = self.key_exchange.take().ok_or(KeyGenerationError)?;
 
-        let key = kex.hash(
-            &[
-                kex.shared_secret().ok_or(KeyGenerationError)?,
-                kex.exchange_hash().ok_or(KeyGenerationError)?,
-                id,
-                self.session_id
-                    .as_ref()
-                    .ok_or(KeyGenerationError)?
-                    .as_slice(),
-            ],
-        );
+        let key = kex.hash(&[
+            kex.shared_secret().ok_or(KeyGenerationError)?,
+            kex.exchange_hash().ok_or(KeyGenerationError)?,
+            id,
+            self.session_id
+                .as_ref()
+                .ok_or(KeyGenerationError)?
+                .as_slice(),
+        ]);
 
         self.key_exchange = Some(kex);
 
@@ -197,8 +198,7 @@ impl<'a> Connection {
     }
 
     pub fn process(&mut self, packet: Packet) -> Result<Option<Packet>> {
-        match packet.msg_type()
-        {
+        match packet.msg_type() {
             MessageType::KexInit => self.kex_init(packet),
             MessageType::NewKeys => self.new_keys(packet),
             MessageType::ServiceRequest => self.service_request(packet),
@@ -214,7 +214,7 @@ impl<'a> Connection {
         }
     }
 
-    fn new_keys(&mut self, packet: Packet) -> Result<Option<Packet>> {
+    fn new_keys(&mut self, _packet: Packet) -> Result<Option<Packet>> {
         debug!("Switching to new keys");
 
         let iv_c2s = self.generate_key(b"A", 256)?;
@@ -224,11 +224,10 @@ impl<'a> Connection {
         let mac_c2s = self.generate_key(b"E", 256)?;
         let mac_s2c = self.generate_key(b"F", 256)?;
 
-        self.encryption =
-            Some((
-                Box::new(AesCtr::new(enc_c2s.as_slice(), iv_c2s.as_slice())),
-                Box::new(AesCtr::new(enc_s2c.as_slice(), iv_s2c.as_slice())),
-            ));
+        self.encryption = Some((
+            Box::new(AesCtr::new(enc_c2s.as_slice(), iv_c2s.as_slice())),
+            Box::new(AesCtr::new(enc_s2c.as_slice(), iv_s2c.as_slice())),
+        ));
 
         self.mac = Some((
             Box::new(Hmac::new(mac_c2s.as_slice())),
@@ -284,12 +283,12 @@ impl<'a> Connection {
 
     fn channel_open(&mut self, packet: Packet) -> Result<Option<Packet>> {
         let mut reader = packet.reader();
-        let channel_type = reader.read_utf8()?;
+        let _channel_type = reader.read_utf8()?;
         let peer_id = reader.read_uint32()?;
         let window_size = reader.read_uint32()?;
         let max_packet_size = reader.read_uint32()?;
 
-        let id = if let Some((id, chan)) = self.channels.iter().next_back() {
+        let id = if let Some((id, _chan)) = self.channels.iter().next_back() {
             id + 1
         }
         else {
@@ -317,9 +316,7 @@ impl<'a> Connection {
         let name = reader.read_utf8()?;
         let want_reply = reader.read_bool()?;
 
-
-        let request = match &*name
-        {
+        let request = match &*name {
             "pty-req" => Some(ChannelRequest::Pty {
                 term: reader.read_utf8()?,
                 chars: reader.read_uint32()? as u16,
@@ -332,9 +329,10 @@ impl<'a> Connection {
             _ => None,
         };
 
-
         if let Some(request) = request {
-            let mut channel = self.channels.get_mut(&channel_id).unwrap();
+            let channel = self.channels.get_mut(&channel_id).unwrap();
+            debug!("Request {:?} on {:?}", request, channel);
+            debug!("channel.pty {:?}", channel.pty);
             channel.request(request);
         }
         else {
@@ -356,7 +354,7 @@ impl<'a> Connection {
         let channel_id = reader.read_uint32()?;
         let data = reader.read_string()?;
 
-        let mut channel = self.channels.get_mut(&channel_id).unwrap();
+        let channel = self.channels.get_mut(&channel_id).unwrap();
         channel.data(data.as_slice())?;
 
         Ok(None)
@@ -373,16 +371,18 @@ impl<'a> Connection {
             let srv_host_key_algos =
                 reader.read_enum_list::<PublicKeyAlgorithm>()?;
 
-            let enc_algos_c2s = reader.read_enum_list::<EncryptionAlgorithm>()?;
-            let enc_algos_s2c = reader.read_enum_list::<EncryptionAlgorithm>()?;
+            let _enc_algos_c2s =
+                reader.read_enum_list::<EncryptionAlgorithm>()?;
+            let enc_algos_s2c =
+                reader.read_enum_list::<EncryptionAlgorithm>()?;
 
-            let mac_algos_c2s = reader.read_enum_list::<MacAlgorithm>()?;
+            let _mac_algos_c2s = reader.read_enum_list::<MacAlgorithm>()?;
             let mac_algos_s2c = reader.read_enum_list::<MacAlgorithm>()?;
 
-            let comp_algos_c2s = reader
-                .read_enum_list::<CompressionAlgorithm>()?;
-            let comp_algos_s2c = reader
-                .read_enum_list::<CompressionAlgorithm>()?;
+            let _comp_algos_c2s =
+                reader.read_enum_list::<CompressionAlgorithm>()?;
+            let comp_algos_s2c =
+                reader.read_enum_list::<CompressionAlgorithm>()?;
 
             (
                 negotiate(KEY_EXCHANGE, kex_algos.as_slice())?,
@@ -403,7 +403,7 @@ impl<'a> Connection {
         self.hash_data.client_kexinit = Some(packet.payload());
 
         // Create a random 16 byte cookie
-        use rand::{self, Rng};
+        use rand::Rng;
         let mut rng = rand::thread_rng();
         let cookie: Vec<u8> = rng.gen_iter::<u8>().take(16).collect();
 
@@ -432,12 +432,12 @@ impl<'a> Connection {
     }
 
     fn key_exchange(&mut self, packet: Packet) -> Result<Option<Packet>> {
-        let mut kex = self.key_exchange.take().ok_or(
-            ConnectionError::KeyExchangeError,
-        )?;
+        let mut kex = self
+            .key_exchange
+            .take()
+            .ok_or(ConnectionError::KeyExchangeError)?;
 
-        let result = match kex.process(self, packet)
-        {
+        let result = match kex.process(self, packet) {
             KexResult::Done(packet) => {
                 self.state = ConnectionState::Established;
 
@@ -452,7 +452,6 @@ impl<'a> Connection {
             KexResult::Ok(packet) => Ok(Some(packet)),
             KexResult::Error => Err(ConnectionError::KeyExchangeError),
         };
-
 
         self.key_exchange = Some(kex);
         result

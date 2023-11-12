@@ -1,4 +1,5 @@
 extern crate ssh;
+#[macro_use]
 extern crate log;
 
 use std::env;
@@ -9,8 +10,8 @@ use std::str::FromStr;
 
 use log::{LogLevelFilter, LogMetadata, LogRecord};
 
-use ssh::{Server, ServerConfig};
 use ssh::public_key::ED25519;
+use ssh::{Server, ServerConfig};
 
 struct StdErrLogger;
 
@@ -28,12 +29,11 @@ impl log::Log for StdErrLogger {
 }
 
 pub fn main() {
-    let mut verbosity = LogLevelFilter::Warn;
+    let mut verbosity = LogLevelFilter::Debug;
     let mut foreground = false;
 
-    let key_pair = File::open("server.key").and_then(
-        |mut f| (ED25519.import)(&mut f),
-    );
+    let key_pair =
+        File::open("server.key").and_then(|mut f| (ED25519.import)(&mut f));
 
     if let Some(ref err) = key_pair.as_ref().err() {
         writeln!(io::stderr(), "sshd: failed to open server.key: {}", err)
@@ -49,17 +49,16 @@ pub fn main() {
 
     let mut args = env::args().skip(1);
     while let Some(arg) = args.next() {
-        match arg.as_ref()
-        {
+        match arg.as_ref() {
             "-v" => verbosity = LogLevelFilter::Info,
             "-vv" => verbosity = LogLevelFilter::Debug,
             "-vvv" => verbosity = LogLevelFilter::Trace,
             "-f" => foreground = true,
             "-p" => {
-                config.port =
-                    u16::from_str(
-                        &args.next().expect("sshd: no argument to -p option"),
-                    ).expect("sshd: invalid port number to -p option");
+                config.port = u16::from_str(
+                    &args.next().expect("sshd: no argument to -p option"),
+                )
+                .expect("sshd: invalid port number to -p option");
             }
             _ => (),
         }
@@ -68,7 +67,8 @@ pub fn main() {
     log::set_logger(|max_log_level| {
         max_log_level.set(verbosity);
         Box::new(StdErrLogger)
-    }).unwrap();
+    })
+    .unwrap();
 
     if !foreground {
         use ssh::sys::fork;
@@ -77,6 +77,7 @@ pub fn main() {
         }
     }
 
+    debug!("config: {:?}", config);
     let server = Server::with_config(config);
 
     if let Err(err) = server.run() {
