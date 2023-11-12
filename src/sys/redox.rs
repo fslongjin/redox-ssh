@@ -16,8 +16,8 @@ pub fn set_winsize(fd: RawFd, row: u16, col: u16, xpixel: u16, ypixel: u16) {}
 pub fn getpty() -> (RawFd, PathBuf) {
     use syscall;
 
-    let master = syscall::open("pty:", syscall::O_RDWR | syscall::O_CREAT)
-        .unwrap();
+    let master =
+        syscall::open("pty:", syscall::O_RDWR | syscall::O_CREAT).unwrap();
 
     let mut buf: [u8; 4096] = [0; 4096];
 

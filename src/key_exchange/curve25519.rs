@@ -47,14 +47,12 @@ impl KeyExchange for Curve25519 {
     }
 
     fn process(&mut self, conn: &mut Connection, packet: Packet) -> KexResult {
-        match packet.msg_type()
-        {
+        match packet.msg_type() {
             MessageType::KeyExchange(ECDH_KEX_INIT) => {
                 let mut reader = packet.reader();
                 let client_public = reader.read_string().unwrap();
 
-                let config = match &conn.conn_type
-                {
+                let config = match &conn.conn_type {
                     &ConnectionType::Server(ref config) => config.clone(),
                     _ => return KexResult::Error,
                 };
@@ -86,7 +84,8 @@ impl KeyExchange for Curve25519 {
                     buf.write_mpint(BigInt::from_bytes_be(
                         Sign::Plus,
                         &curve25519::curve25519(&server_secret, &client_public),
-                    )).ok();
+                    ))
+                    .ok();
                     buf
                 };
 
@@ -94,16 +93,15 @@ impl KeyExchange for Curve25519 {
                     let mut buf = Vec::new();
                     let data = &conn.hash_data;
 
-                    let items =
-                        [
-                            data.client_id.as_ref().unwrap().as_bytes(),
-                            data.server_id.as_ref().unwrap().as_bytes(),
-                            data.client_kexinit.as_ref().unwrap().as_slice(),
-                            data.server_kexinit.as_ref().unwrap().as_slice(),
-                            public_key.as_slice(),
-                            client_public.as_slice(),
-                            &server_public,
-                        ];
+                    let items = [
+                        data.client_id.as_ref().unwrap().as_bytes(),
+                        data.server_id.as_ref().unwrap().as_bytes(),
+                        data.client_kexinit.as_ref().unwrap().as_slice(),
+                        data.server_kexinit.as_ref().unwrap().as_slice(),
+                        public_key.as_slice(),
+                        client_public.as_slice(),
+                        &server_public,
+                    ];
 
                     for item in items.iter() {
                         buf.write_bytes(item).ok();

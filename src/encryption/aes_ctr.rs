@@ -1,4 +1,4 @@
-use crypto::aes::{KeySize, ctr};
+use crypto::aes::{ctr, KeySize};
 use crypto::symmetriccipher::SynchronousStreamCipher;
 
 use encryption::Encryption;
@@ -9,7 +9,9 @@ pub struct AesCtr {
 
 impl AesCtr {
     pub fn new(key: &[u8], iv: &[u8]) -> AesCtr {
-        AesCtr { cipher: ctr(KeySize::KeySize256, key, &iv[0..16]) }
+        AesCtr {
+            cipher: ctr(KeySize::KeySize256, key, &iv[0..16]),
+        }
     }
 }
 

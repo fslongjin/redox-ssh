@@ -1,4 +1,7 @@
-use std::io::{self, Read, Write};
+use std::{
+    fmt::Debug,
+    io::{self, Read, Write},
+};
 
 // mod rsa;
 mod ed25519;
@@ -7,7 +10,7 @@ mod ed25519;
 
 pub use self::ed25519::ED25519;
 
-pub trait KeyPair: Sync + Send {
+pub trait KeyPair: Sync + Send + Debug {
     fn system(&self) -> &'static CryptoSystem;
 
     fn has_private(&self) -> bool;

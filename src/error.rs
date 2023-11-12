@@ -24,8 +24,7 @@ impl fmt::Display for ConnectionError {
 impl Error for ConnectionError {
     fn description(&self) -> &str {
         use self::ConnectionError::*;
-        match self
-        {
+        match self {
             &IoError(_) => "io error",
             &ProtocolError => "protocol error",
             &NegotiationError => "negotiation error",

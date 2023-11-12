@@ -1,5 +1,5 @@
-use std::io::{self, Read, Write};
 use std::io::ErrorKind::InvalidData;
+use std::io::{self, Read, Write};
 
 use crypto::ed25519;
 use public_key::{CryptoSystem, KeyPair};
@@ -12,6 +12,7 @@ pub static ED25519: CryptoSystem = CryptoSystem {
     read_public: Ed25519KeyPair::read_public,
 };
 
+#[derive(Debug)]
 struct Ed25519KeyPair {
     private: Option<[u8; 64]>,
     public: [u8; 32],

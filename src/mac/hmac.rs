@@ -10,7 +10,9 @@ pub struct Hmac {
 impl Hmac {
     pub fn new(key: &[u8]) -> Hmac {
         let digest = Sha256::new();
-        Hmac { hmac: Box::new(rcHmac::new(digest, key)) }
+        Hmac {
+            hmac: Box::new(rcHmac::new(digest, key)),
+        }
     }
 }
 
@@ -24,7 +26,7 @@ impl MacAlgorithm for Hmac {
             ((seq & 0xff000000) >> 24) as u8,
             ((seq & 0x00ff0000) >> 16) as u8,
             ((seq & 0x0000ff00) >> 8) as u8,
-            ((seq & 0x000000ff)) as u8,
+            (seq & 0x000000ff) as u8,
         ];
 
         self.hmac.input(sequence);

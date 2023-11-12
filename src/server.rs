@@ -6,10 +6,11 @@ use std::thread;
 use connection::{Connection, ConnectionType};
 use public_key::KeyPair;
 
+#[derive(Debug)]
 pub struct ServerConfig {
     pub host: String,
     pub port: u16,
-    pub key: Box<KeyPair>,
+    pub key: Box<dyn KeyPair>,
 }
 
 pub struct Server {
@@ -18,10 +19,13 @@ pub struct Server {
 
 impl Server {
     pub fn with_config(config: ServerConfig) -> Server {
-        Server { config: Arc::new(config) }
+        Server {
+            config: Arc::new(config),
+        }
     }
 
     pub fn run(&self) -> io::Result<()> {
+        debug!("To listen on {}:{}", self.config.host, self.config.port);
         let listener =
             TcpListener::bind((&*self.config.host, self.config.port))?;
 
@@ -42,7 +46,5 @@ impl Server {
                 }
             });
         }
-
-        Ok(())
     }
 }

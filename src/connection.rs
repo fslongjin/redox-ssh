@@ -113,8 +113,11 @@ impl<'a> Connection {
         Ok(packet)
     }
 
-    fn send(&mut self, mut stream: &mut Write, packet: Packet)
-        -> io::Result<()> {
+    fn send(
+        &mut self,
+        mut stream: &mut Write,
+        packet: Packet,
+    ) -> io::Result<()> {
         debug!("Sending packet {}: {:?}", self.seq.1, packet);
 
         let packet = packet.to_raw()?;
@@ -179,17 +182,15 @@ impl<'a> Connection {
 
         let kex = self.key_exchange.take().ok_or(KeyGenerationError)?;
 
-        let key = kex.hash(
-            &[
-                kex.shared_secret().ok_or(KeyGenerationError)?,
-                kex.exchange_hash().ok_or(KeyGenerationError)?,
-                id,
-                self.session_id
-                    .as_ref()
-                    .ok_or(KeyGenerationError)?
-                    .as_slice(),
-            ],
-        );
+        let key = kex.hash(&[
+            kex.shared_secret().ok_or(KeyGenerationError)?,
+            kex.exchange_hash().ok_or(KeyGenerationError)?,
+            id,
+            self.session_id
+                .as_ref()
+                .ok_or(KeyGenerationError)?
+                .as_slice(),
+        ]);
 
         self.key_exchange = Some(kex);
 
@@ -197,8 +198,7 @@ impl<'a> Connection {
     }
 
     pub fn process(&mut self, packet: Packet) -> Result<Option<Packet>> {
-        match packet.msg_type()
-        {
+        match packet.msg_type() {
             MessageType::KexInit => self.kex_init(packet),
             MessageType::NewKeys => self.new_keys(packet),
             MessageType::ServiceRequest => self.service_request(packet),
@@ -224,11 +224,10 @@ impl<'a> Connection {
         let mac_c2s = self.generate_key(b"E", 256)?;
         let mac_s2c = self.generate_key(b"F", 256)?;
 
-        self.encryption =
-            Some((
-                Box::new(AesCtr::new(enc_c2s.as_slice(), iv_c2s.as_slice())),
-                Box::new(AesCtr::new(enc_s2c.as_slice(), iv_s2c.as_slice())),
-            ));
+        self.encryption = Some((
+            Box::new(AesCtr::new(enc_c2s.as_slice(), iv_c2s.as_slice())),
+            Box::new(AesCtr::new(enc_s2c.as_slice(), iv_s2c.as_slice())),
+        ));
 
         self.mac = Some((
             Box::new(Hmac::new(mac_c2s.as_slice())),
@@ -317,9 +316,7 @@ impl<'a> Connection {
         let name = reader.read_utf8()?;
         let want_reply = reader.read_bool()?;
 
-
-        let request = match &*name
-        {
+        let request = match &*name {
             "pty-req" => Some(ChannelRequest::Pty {
                 term: reader.read_utf8()?,
                 chars: reader.read_uint32()? as u16,
@@ -332,9 +329,10 @@ impl<'a> Connection {
             _ => None,
         };
 
-
         if let Some(request) = request {
-            let mut channel = self.channels.get_mut(&channel_id).unwrap();
+            let channel = self.channels.get_mut(&channel_id).unwrap();
+            debug!("Request {:?} on {:?}", request, channel);
+            debug!("channel.pty {:?}", channel.pty);
             channel.request(request);
         }
         else {
@@ -373,16 +371,18 @@ impl<'a> Connection {
             let srv_host_key_algos =
                 reader.read_enum_list::<PublicKeyAlgorithm>()?;
 
-            let enc_algos_c2s = reader.read_enum_list::<EncryptionAlgorithm>()?;
-            let enc_algos_s2c = reader.read_enum_list::<EncryptionAlgorithm>()?;
+            let enc_algos_c2s =
+                reader.read_enum_list::<EncryptionAlgorithm>()?;
+            let enc_algos_s2c =
+                reader.read_enum_list::<EncryptionAlgorithm>()?;
 
             let mac_algos_c2s = reader.read_enum_list::<MacAlgorithm>()?;
             let mac_algos_s2c = reader.read_enum_list::<MacAlgorithm>()?;
 
-            let comp_algos_c2s = reader
-                .read_enum_list::<CompressionAlgorithm>()?;
-            let comp_algos_s2c = reader
-                .read_enum_list::<CompressionAlgorithm>()?;
+            let comp_algos_c2s =
+                reader.read_enum_list::<CompressionAlgorithm>()?;
+            let comp_algos_s2c =
+                reader.read_enum_list::<CompressionAlgorithm>()?;
 
             (
                 negotiate(KEY_EXCHANGE, kex_algos.as_slice())?,
@@ -432,12 +432,12 @@ impl<'a> Connection {
     }
 
     fn key_exchange(&mut self, packet: Packet) -> Result<Option<Packet>> {
-        let mut kex = self.key_exchange.take().ok_or(
-            ConnectionError::KeyExchangeError,
-        )?;
+        let mut kex = self
+            .key_exchange
+            .take()
+            .ok_or(ConnectionError::KeyExchangeError)?;
 
-        let result = match kex.process(self, packet)
-        {
+        let result = match kex.process(self, packet) {
             KexResult::Done(packet) => {
                 self.state = ConnectionState::Established;
 
@@ -452,7 +452,6 @@ impl<'a> Connection {
             KexResult::Ok(packet) => Ok(Some(packet)),
             KexResult::Error => Err(ConnectionError::KeyExchangeError),
         };
-
 
         self.key_exchange = Some(kex);
         result

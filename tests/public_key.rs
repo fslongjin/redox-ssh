@@ -1,5 +1,5 @@
-extern crate ssh;
 extern crate rand;
+extern crate ssh;
 
 use std::io::Cursor;
 
