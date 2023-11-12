@@ -52,6 +52,7 @@ impl KeyExchange for Curve25519 {
                 let mut reader = packet.reader();
                 let client_public = reader.read_string().unwrap();
 
+                #[allow(unreachable_patterns)]
                 let config = match &conn.conn_type {
                     &ConnectionType::Server(ref config) => config.clone(),
                     _ => return KexResult::Error,

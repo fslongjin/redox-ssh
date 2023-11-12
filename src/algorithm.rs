@@ -58,7 +58,7 @@ pub enum KeyExchangeAlgorithm {
 }
 
 impl KeyExchangeAlgorithm {
-    pub fn instance(&self) -> Option<Box<KeyExchange>> {
+    pub fn instance(&self) -> Option<Box<dyn KeyExchange>> {
         use self::KeyExchangeAlgorithm::*;
         match self {
             &CURVE25519_SHA256 => {

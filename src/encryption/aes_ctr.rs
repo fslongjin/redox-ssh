@@ -4,7 +4,7 @@ use crypto::symmetriccipher::SynchronousStreamCipher;
 use encryption::Encryption;
 
 pub struct AesCtr {
-    cipher: Box<SynchronousStreamCipher + 'static>,
+    cipher: Box<dyn SynchronousStreamCipher + 'static>,
 }
 
 impl AesCtr {

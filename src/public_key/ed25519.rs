@@ -19,7 +19,7 @@ struct Ed25519KeyPair {
 }
 
 impl Ed25519KeyPair {
-    fn generate(_: Option<u32>) -> Box<KeyPair> {
+    fn generate(_: Option<u32>) -> Box<dyn KeyPair> {
         let mut seed = [0u8; 32];
         let mut rng = rand::thread_rng();
         rng.fill_bytes(&mut seed);
@@ -31,7 +31,7 @@ impl Ed25519KeyPair {
         })
     }
 
-    fn import(mut r: &mut Read) -> io::Result<Box<KeyPair>> {
+    fn import(mut r: &mut dyn Read) -> io::Result<Box<dyn KeyPair>> {
         use packet::ReadPacketExt;
 
         if r.read_utf8()? != "ssh-ed25519" {
@@ -58,7 +58,7 @@ impl Ed25519KeyPair {
         }))
     }
 
-    fn read_public(mut r: &mut Read) -> io::Result<Box<KeyPair>> {
+    fn read_public(mut r: &mut dyn Read) -> io::Result<Box<dyn KeyPair>> {
         use packet::ReadPacketExt;
 
         if r.read_uint32()? != 32 {
@@ -113,13 +113,13 @@ impl KeyPair for Ed25519KeyPair {
         }
     }
 
-    fn write_public(&self, w: &mut Write) -> io::Result<()> {
+    fn write_public(&self, w: &mut dyn Write) -> io::Result<()> {
         use packet::WritePacketExt;
         w.write_string("ssh-ed25519")?;
         w.write_bytes(&self.public)
     }
 
-    fn export(&self, w: &mut Write) -> io::Result<()> {
+    fn export(&self, w: &mut dyn Write) -> io::Result<()> {
         use packet::WritePacketExt;
         w.write_string("ssh-ed25519")?;
         w.write_bytes(&self.public)?;

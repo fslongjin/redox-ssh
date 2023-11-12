@@ -17,7 +17,7 @@ pub enum ConnectionError {
 
 impl fmt::Display for ConnectionError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "connection error: {}", (self as &Error).description())
+        write!(f, "connection error: {self:?}",)
     }
 }
 

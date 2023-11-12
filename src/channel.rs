@@ -9,6 +9,7 @@ use sys;
 
 pub type ChannelId = u32;
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct Channel {
     id: ChannelId,
@@ -142,13 +143,15 @@ impl Channel {
                         .unwrap()
                         .into_raw_fd();
 
-                    process::Command::new("login")
-                        .stdin(unsafe { Stdio::from_raw_fd(stdin) })
-                        .stdout(unsafe { Stdio::from_raw_fd(stdout) })
-                        .stderr(unsafe { Stdio::from_raw_fd(stderr) })
-                        .before_exec(|| sys::before_exec())
-                        .spawn()
-                        .unwrap();
+                    unsafe {
+                        process::Command::new("login")
+                            .stdin(Stdio::from_raw_fd(stdin))
+                            .stdout(Stdio::from_raw_fd(stdout))
+                            .stderr(Stdio::from_raw_fd(stderr))
+                            .pre_exec(|| sys::before_exec())
+                            .spawn()
+                            .unwrap()
+                    };
                 }
             }
         }

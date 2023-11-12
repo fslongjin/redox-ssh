@@ -8,7 +8,7 @@ use std::io::{self, Write};
 use std::process;
 use std::str::FromStr;
 
-use log::{info, LogLevelFilter, LogMetadata, LogRecord};
+use log::{LogLevelFilter, LogMetadata, LogRecord};
 
 use ssh::public_key::ED25519;
 use ssh::{Server, ServerConfig};

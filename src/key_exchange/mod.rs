@@ -7,6 +7,7 @@ pub use self::curve25519::Curve25519;
 use connection::Connection;
 use packet::Packet;
 
+#[allow(dead_code)]
 pub enum KexResult {
     Ok(Packet),
     Done(Packet),
